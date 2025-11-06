@@ -8,47 +8,36 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [greeting, setGreeting] = useState("");
   const [time, setTime] = useState("");
-  const [mode, setMode] = useState(null); // null until loaded
-  const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState("digital");
 
-  // Load user first
   useEffect(() => {
     try {
       const storedUser = safeStorage.getItem("user");
       if (storedUser) {
         const parsed = JSON.parse(storedUser);
-        if (parsed?.email) {
-          setUser(parsed);
-        }
+        if (parsed?.email) setUser(parsed);
       }
     } catch (err) {
       console.error("Error loading user:", err);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
-  // Once user is loaded, load or set default clock mode
+  const handleLogout = () => {
+    safeStorage.removeItem("user");
+    window.location.reload();
+  };
+
   useEffect(() => {
     if (user?.email) {
       const savedMode = safeStorage.getItem(`clockMode_${user.email}`);
-      if (savedMode) {
-        setMode(savedMode);
-      } else {
-        safeStorage.setItem(`clockMode_${user.email}`, "digital");
-        setMode("digital");
-      }
+      if (savedMode) setMode(savedMode);
     }
   }, [user?.email]);
 
-  // Save mode when it changes
   useEffect(() => {
-    if (user?.email && mode) {
-      safeStorage.setItem(`clockMode_${user.email}`, mode);
-    }
+    if (user?.email) safeStorage.setItem(`clockMode_${user.email}`, mode);
   }, [mode, user?.email]);
 
-  // Greeting based on time
   useEffect(() => {
     const now = new Date();
     const hour = now.getHours();
@@ -58,7 +47,6 @@ export default function Dashboard() {
     else setGreeting("Good night 🌌");
   }, []);
 
-  // Digital clock updater
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
@@ -75,27 +63,20 @@ export default function Dashboard() {
       });
       setTime(`${formattedDate} — ${formattedTime}`);
     };
+
     updateClock();
     const interval = setInterval(updateClock, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleLogout = () => {
-    safeStorage.removeItem("user");
-    window.location.reload();
-  };
+  const toggleClockMode = () => setMode(mode === "digital" ? "analog" : "digital");
 
-  const toggleClockMode = () => {
-    setMode(mode === "digital" ? "analog" : "digital");
-  };
-
-  if (loading) {
+  if (!user) {
     return (
       <div
         style={{
           minHeight: "100vh",
-          background:
-            "linear-gradient(135deg, rgba(30,41,59,1) 0%, rgba(15,23,42,1) 100%)",
+          background: "linear-gradient(135deg, rgba(30,41,59,1), rgba(15,23,42,1))",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
@@ -108,58 +89,19 @@ export default function Dashboard() {
     );
   }
 
-  if (!user) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background:
-            "linear-gradient(135deg, rgba(30,41,59,1) 0%, rgba(15,23,42,1) 100%)",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          color: "#f1f5f9",
-          fontSize: "1.2rem",
-        }}
-      >
-        No user found. Please log in again.
-      </div>
-    );
-  }
-
-  // Don’t render main view until mode is loaded
-  if (!mode) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background:
-            "linear-gradient(135deg, rgba(30,41,59,1) 0%, rgba(15,23,42,1) 100%)",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          color: "#f1f5f9",
-          fontSize: "1.2rem",
-        }}
-      >
-        Initializing your clock...
-      </div>
-    );
-  }
-
   return (
     <div
       style={{
         textAlign: "center",
-        padding: "2rem",
+        padding: "1.5rem",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         minHeight: "100vh",
-        background:
-          "linear-gradient(135deg, rgba(30,41,59,1) 0%, rgba(15,23,42,1) 100%)",
+        background: "linear-gradient(135deg, #1e293b, #0f172a)",
         color: "#f1f5f9",
+        overflowX: "hidden",
       }}
     >
       <button
@@ -175,58 +117,115 @@ export default function Dashboard() {
           borderRadius: "8px",
           cursor: "pointer",
           fontWeight: 500,
+          boxShadow: "0 0 10px rgba(239,68,68,0.4)",
+          transition: "transform 0.2s ease, box-shadow 0.3s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.transform = "scale(1.05)";
+          e.target.style.boxShadow = "0 0 16px rgba(239,68,68,0.6)";
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.transform = "scale(1)";
+          e.target.style.boxShadow = "0 0 10px rgba(239,68,68,0.4)";
         }}
       >
         Logout
       </button>
 
-      <h1 style={{ fontSize: "2rem", marginBottom: "0.3rem" }}>
+      <h1 className="fade-down" style={{ fontSize: "2rem", marginBottom: "1rem" }}>
         {greeting}, {user?.name || "friend"} 👋
       </h1>
 
-      {mode === "digital" ? (
-        <p
-          style={{
-            marginBottom: "1.5rem",
-            color: "#94a3b8",
-            fontSize: "1.1rem",
-          }}
-        >
-          {time}
-        </p>
-      ) : (
-        <AnalogClock />
-      )}
+      <div className="dashboard-grid">
+        {/* LEFT COLUMN */}
+        <div className="left-col">
+          <div className="glass-card fade-up">
+            {mode === "digital" ? (
+              <p style={{ color: "#94a3b8", fontSize: "1.1rem" }}>{time}</p>
+            ) : (
+              <AnalogClock />
+            )}
+            <button
+              onClick={toggleClockMode}
+              style={{
+                background: "#3b82f6",
+                color: "white",
+                border: "none",
+                padding: "0.5rem 1rem",
+                borderRadius: "8px",
+                cursor: "pointer",
+                marginTop: "1rem",
+              }}
+            >
+              Switch to {mode === "digital" ? "Analog" : "Digital"} Mode
+            </button>
+          </div>
 
-      <button
-        onClick={toggleClockMode}
-        style={{
-          background: "#3b82f6",
-          color: "white",
-          border: "none",
-          padding: "0.5rem 1rem",
-          borderRadius: "8px",
-          cursor: "pointer",
-          marginBottom: "1.5rem",
-        }}
-      >
-        Switch to {mode === "digital" ? "Analog" : "Digital"} Mode
-      </button>
+          <div className="glass-card fade-up" style={{ animationDelay: "0.3s" }}>
+            <WeatherCard />
+          </div>
+        </div>
 
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "400px",
-          background: "#1e293b",
-          borderRadius: "16px",
-          padding: "1.5rem",
-          boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
-        }}
-      >
-        <WeatherCard />
+        {/* RIGHT COLUMN */}
+        <div className="right-col">
+          <div className="glass-card fade-up" style={{ animationDelay: "0.6s" }}>
+            <NotesWidget userEmail={user?.email} />
+          </div>
+        </div>
       </div>
 
-      <NotesWidget userEmail={user?.email} />
+      {/* 🎬 ANIMATIONS & STYLING */}
+      <style>
+        {`
+          .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            width: 100%;
+            max-width: 1000px;
+          }
+
+          @media (min-width: 768px) {
+            .dashboard-grid {
+              grid-template-columns: 1fr 1fr;
+              align-items: start;
+              gap: 1.5rem;
+            }
+          }
+
+          .glass-card {
+            background: rgba(30,41,59,0.7);
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+          }
+
+          .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(59,130,246,0.3);
+          }
+
+          /* Animations */
+          @keyframes fadeUp {
+            0% { opacity: 0; transform: translateY(30px); }
+            100% { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes fadeDown {
+            0% { opacity: 0; transform: translateY(-20px); }
+            100% { opacity: 1; transform: translateY(0); }
+          }
+          .fade-up {
+            opacity: 0;
+            animation: fadeUp 0.8s ease forwards;
+          }
+          .fade-down {
+            opacity: 0;
+            animation: fadeDown 0.8s ease forwards;
+          }
+        `}
+      </style>
     </div>
   );
 }

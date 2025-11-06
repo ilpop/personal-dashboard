@@ -7,13 +7,15 @@ export default function WeatherCard() {
   const [error, setError] = useState(null);
   const [useLocation, setUseLocation] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [animateData, setAnimateData] = useState(false);
 
   const API_KEY = import.meta.env.VITE_WEATHER_API_KEY;
 
   // === Fetch by city name ===
   async function fetchByCity(name) {
     try {
-      setLoading(true);
+      setRefreshing(true);
       const res = await fetch(
         `https://api.openweathermap.org/data/2.5/weather?q=${name}&appid=${API_KEY}&units=metric`
       );
@@ -23,17 +25,22 @@ export default function WeatherCard() {
       setError(null);
       localStorage.setItem("lastCity", data.name);
       setLastUpdated(new Date());
+      setAnimateData(true);
+      setTimeout(() => setAnimateData(false), 800);
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      setTimeout(() => {
+        setLoading(false);
+        setRefreshing(false);
+      }, 500);
     }
   }
 
   // === Fetch by coordinates ===
   async function fetchByCoords(lat, lon) {
     try {
-      setLoading(true);
+      setRefreshing(true);
       const res = await fetch(
         `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`
       );
@@ -44,10 +51,15 @@ export default function WeatherCard() {
       localStorage.setItem("lastCity", data.name);
       setError(null);
       setLastUpdated(new Date());
+      setAnimateData(true);
+      setTimeout(() => setAnimateData(false), 800);
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      setTimeout(() => {
+        setLoading(false);
+        setRefreshing(false);
+      }, 500);
     }
   }
 
@@ -91,7 +103,6 @@ export default function WeatherCard() {
       ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
       : null;
 
-  // === UI States ===
   if (loading) return <p>☁️ Loading weather...</p>;
   if (error)
     return (
@@ -106,56 +117,59 @@ export default function WeatherCard() {
   const desc = details?.[0]?.description;
 
   return (
-    <div style={{ textAlign: "center" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          gap: "0.5rem",
-        }}
-      >
-        <h2 style={{ fontSize: "1.4rem", fontWeight: "600", marginBottom: "0.5rem" }}>
-          {name}
-        </h2>
-        <button
-          onClick={handleRefresh}
-          title="Refresh weather"
+    <div style={{ textAlign: "center", position: "relative" }}>
+      {/* === Weather Info with fade/blur animation === */}
+      <div className={`weather-info ${refreshing ? "refreshing" : "active"}`}>
+        <div
           style={{
-            background: "none",
-            border: "none",
-            color: "#94a3b8",
-            fontSize: "1.3rem",
-            cursor: "pointer",
-            transition: "transform 0.2s",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "0.5rem",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.transform = "rotate(180deg)")}
-          onMouseLeave={(e) => (e.currentTarget.style.transform = "rotate(0deg)")}
         >
-          🔄
-        </button>
+          <h2 style={{ fontSize: "1.4rem", fontWeight: "600", marginBottom: "0.5rem" }}>
+            {name}
+          </h2>
+          <button
+            onClick={handleRefresh}
+            title="Refresh weather"
+            className={`refresh-btn ${refreshing ? "spinning" : ""}`}
+          >
+            🔄
+          </button>
+        </div>
+
+        <div className={`fadeup ${animateData ? "animate" : ""}`}>
+          {icon && (
+            <img
+              src={`https://openweathermap.org/img/wn/${icon}@2x.png`}
+              alt={desc}
+              style={{ width: "80px", height: "80px" }}
+            />
+          )}
+          <p style={{ fontSize: "2rem", margin: "0.2rem 0" }}>
+            {Math.round(main.temp)}°C
+          </p>
+          <p
+            style={{
+              textTransform: "capitalize",
+              color: "#94a3b8",
+              marginBottom: "1rem",
+            }}
+          >
+            {desc}
+          </p>
+        </div>
+
+        {lastUpdated && (
+          <p style={{ fontSize: "0.85rem", color: "#64748b", marginBottom: "0.5rem" }}>
+            Last updated: {formatTime(lastUpdated)}
+          </p>
+        )}
       </div>
 
-      {icon && (
-        <img
-          src={`https://openweathermap.org/img/wn/${icon}@2x.png`}
-          alt={desc}
-          style={{ width: "80px", height: "80px" }}
-        />
-      )}
-      <p style={{ fontSize: "2rem", margin: "0.2rem 0" }}>
-        {Math.round(main.temp)}°C
-      </p>
-      <p style={{ textTransform: "capitalize", color: "#94a3b8", marginBottom: "1rem" }}>
-        {desc}
-      </p>
-
-      {lastUpdated && (
-        <p style={{ fontSize: "0.85rem", color: "#64748b", marginBottom: "0.5rem" }}>
-          Last updated: {formatTime(lastUpdated)}
-        </p>
-      )}
-
+      {/* === Search Form === */}
       <form
         onSubmit={handleSubmit}
         style={{
@@ -180,19 +194,93 @@ export default function WeatherCard() {
         />
         <button
           type="submit"
-          style={{
-            background: "#6366f1",
-            color: "white",
-            padding: "0.5rem 0.9rem",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-          }}
+          className={`search-btn ${refreshing ? "pulsing" : ""}`}
         >
           Search
         </button>
       </form>
+
+      {/* === Animations === */}
+      <style>
+        {`
+          .weather-info {
+            transition: opacity 0.6s ease, filter 0.6s ease;
+          }
+          .weather-info.refreshing {
+            opacity: 0.5;
+            filter: blur(3px);
+          }
+          .weather-info.active {
+            opacity: 1;
+            filter: blur(0);
+          }
+
+          .fadeup {
+            opacity: 1;
+            transform: translateY(0);
+            transition: all 0.6s ease;
+          }
+          .fadeup.animate {
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeUp 0.8s ease forwards;
+          }
+
+          @keyframes fadeUp {
+            0% {
+              opacity: 0;
+              transform: translateY(15px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          .refresh-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: transform 0.4s ease, color 0.3s ease;
+          }
+          .refresh-btn:hover {
+            color: #60a5fa;
+            transform: rotate(180deg);
+          }
+          .refresh-btn.spinning {
+            animation: spin 1s linear infinite;
+          }
+
+          .search-btn {
+            background: #6366f1;
+            color: white;
+            padding: 0.5rem 0.9rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.3s ease, background 0.3s ease;
+          }
+          .search-btn:hover {
+            background: #4f46e5;
+            transform: scale(1.05);
+          }
+          .search-btn.pulsing {
+            animation: pulse 0.8s ease-in-out infinite;
+          }
+
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+
+          @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+          }
+        `}
+      </style>
     </div>
   );
 }
-
