@@ -2,14 +2,15 @@ import { useEffect, useState } from "react";
 
 export default function WeatherCard() {
   const [weather, setWeather] = useState(null);
-  const [city, setCity] = useState("Helsinki");
+  const [city, setCity] = useState(localStorage.getItem("lastCity") || "Helsinki");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [useLocation, setUseLocation] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const API_KEY = import.meta.env.VITE_WEATHER_API_KEY;
 
-  // Fetch weather by city name
+  // === Fetch by city name ===
   async function fetchByCity(name) {
     try {
       setLoading(true);
@@ -20,6 +21,8 @@ export default function WeatherCard() {
       if (data.cod !== 200) throw new Error(data.message);
       setWeather(data);
       setError(null);
+      localStorage.setItem("lastCity", data.name);
+      setLastUpdated(new Date());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -27,7 +30,7 @@ export default function WeatherCard() {
     }
   }
 
-  // Fetch weather by geolocation
+  // === Fetch by coordinates ===
   async function fetchByCoords(lat, lon) {
     try {
       setLoading(true);
@@ -38,7 +41,9 @@ export default function WeatherCard() {
       if (data.cod !== 200) throw new Error(data.message);
       setWeather(data);
       setCity(data.name);
+      localStorage.setItem("lastCity", data.name);
       setError(null);
+      setLastUpdated(new Date());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -46,7 +51,7 @@ export default function WeatherCard() {
     }
   }
 
-  // On mount, try geolocation
+  // === Try geolocation first, fallback to saved or default city ===
   useEffect(() => {
     if (!API_KEY) {
       setError("Missing API key in .env");
@@ -54,30 +59,39 @@ export default function WeatherCard() {
       return;
     }
 
+    const savedCity = localStorage.getItem("lastCity");
     if (navigator.geolocation && useLocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;
           fetchByCoords(latitude, longitude);
         },
-        (err) => {
-          console.warn("Geolocation blocked:", err.message);
+        () => {
           setUseLocation(false);
-          fetchByCity(city);
+          fetchByCity(savedCity || city);
         }
       );
     } else {
-      fetchByCity(city);
+      fetchByCity(savedCity || city);
     }
   }, [API_KEY, useLocation]);
 
-  // Submit handler for manual city input
   const handleSubmit = (e) => {
     e.preventDefault();
     if (city.trim()) fetchByCity(city);
   };
 
-  // UI States
+  const handleRefresh = () => {
+    const savedCity = localStorage.getItem("lastCity") || city;
+    fetchByCity(savedCity);
+  };
+
+  const formatTime = (date) =>
+    date
+      ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : null;
+
+  // === UI States ===
   if (loading) return <p>☁️ Loading weather...</p>;
   if (error)
     return (
@@ -93,9 +107,35 @@ export default function WeatherCard() {
 
   return (
     <div style={{ textAlign: "center" }}>
-      <h2 style={{ fontSize: "1.4rem", fontWeight: "600", marginBottom: "0.5rem" }}>
-        {name}
-      </h2>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: "0.5rem",
+        }}
+      >
+        <h2 style={{ fontSize: "1.4rem", fontWeight: "600", marginBottom: "0.5rem" }}>
+          {name}
+        </h2>
+        <button
+          onClick={handleRefresh}
+          title="Refresh weather"
+          style={{
+            background: "none",
+            border: "none",
+            color: "#94a3b8",
+            fontSize: "1.3rem",
+            cursor: "pointer",
+            transition: "transform 0.2s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = "rotate(180deg)")}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = "rotate(0deg)")}
+        >
+          🔄
+        </button>
+      </div>
+
       {icon && (
         <img
           src={`https://openweathermap.org/img/wn/${icon}@2x.png`}
@@ -110,7 +150,12 @@ export default function WeatherCard() {
         {desc}
       </p>
 
-      {/* Manual city input */}
+      {lastUpdated && (
+        <p style={{ fontSize: "0.85rem", color: "#64748b", marginBottom: "0.5rem" }}>
+          Last updated: {formatTime(lastUpdated)}
+        </p>
+      )}
+
       <form
         onSubmit={handleSubmit}
         style={{
@@ -150,3 +195,4 @@ export default function WeatherCard() {
     </div>
   );
 }
+

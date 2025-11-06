@@ -1,24 +1,18 @@
-import Greeting from "./components/Greeting";
-import Clock from "./components/Clock";
-import WeatherCard from "./components/WeatherCard";
-import TodoList from "./components/TodoList";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import Dashboard from "./pages/Dashboard";
+import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
 
 export default function App() {
-  return (
-    <div className="app-container">
-      <div className="header">
-        <Greeting />
-        <Clock />
-      </div>
+  const isLoggedIn = !!localStorage.getItem("user");
 
-      <div className="dashboard-grid">
-        <div className="card">
-          <WeatherCard city="Helsinki" />
-        </div>
-        <div className="card">
-          <TodoList />
-        </div>
-      </div>
-    </div>
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+      </Routes>
+    </Router>
   );
 }
